@@ -1,0 +1,125 @@
+---
+title: "OLS GLS BP-Test"
+author: "Dr. Lin, Mau-Ting"
+date: "March 19, 2015"
+output: word_document
+---
+
+# OLS
+
+清空資料
+```{r}
+rm(list=ls())
+```
+讀入資料檔
+```{r}
+airlines <- read.table("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/airlines.txt", header=TRUE, quote="\"")
+```
+
+設定迴歸模型，並將此模型稱為model
+$$
+\log(C_i)=\beta_0+\beta_1\log(Q_i)
++\beta_2{log(Q_i)}^2
++\beta_3\log(PF_i)+LF_i+\epsilon_i
+$$
+```{r}
+model<-log(C)~log(Q)+I(log(Q)^2)+log(PF)+LF
+```
+
+對model模型進行OLS估計，並使用airlines資料
+```{r}
+out1<-lm(model,data=airlines)
+summary(out1)
+```
+
+# White's 穩健標準誤與GLS
+載入套件
+```{r}
+library(sandwich) # For vcovHC function
+library(lmtest) # For coeftest and bptest
+```
+
+計算White's 穩健標準誤下的係數檢定 
+
+使用coef( )來計算穩健標準誤下的係數檢定表。使用方法如下：
+
+coeftest(之前迴歸估計的結果,vcov=標準誤所依據的估計係數共變異矩陣)
+
+其中，「標準誤的所依據的估計係數共變異矩陣」利用vcovHC( )產生。用法如下：
+
+vcovHC(依據的迴歸估計結果,type='HC0')
+```{r}
+coeftest(out1,vcov=vcovHC(out1,type='HC0'))
+```
+
+# FGLS
+載入GLS所需套件
+```{r}
+library(nlme) # For gls
+```
+
+設定異質變異如下
+$$
+\sigma^2_i=\sigma^2\exp{\alpha_1 FL_i}
+$$
+
+使用varExp(form= ...) 來達成以上設定。varExp指異質變異函數型式為指數。form=~LF指指數函數內的變數關連為$\alpha_1 FL_i$的線性關係。注意exp函數前有乘上$\sigma^2$，若把它併入exp內，則
+$$
+\sigma^2_i=\exp(\log(\sigma^2)+\alpha_1 FL_i)
+$$
+相當於exp內帶常數項。
+
+進行GLS估計：
+gls(模型設定, data=資料名稱, weights=異質變異函數狀態)
+```{r}
+out2<-gls(model,data=airlines,weights=varExp(form=~LF)) 
+summary(out2)
+```
+接下來，我們要進行群組式的異質變異討論，以Q>0.2與否來分組。
+
+產生新的變數來代表$Q_i>0.2$與否
+```{r}
+airlines$BigQ<-(airlines$Q>0.2)
+```
+
+考慮，LF對異質變異的影響因BigQ=1 或 0而有不同，如下式：
+$$
+\sigma_{i}^{2}=\begin{cases}
+\begin{array}{ccc}
+\sigma^{2}\exp(\delta_{1,1}LF_{i}) &  & \text{if }BigQ_{i}=1\text{ (or TRUE)}\\
+\sigma^{2}\exp(\delta_{1,2}LF_{i}) &  & \text{if }BigQ_{i}=0\text{ (or FALSE)}
+\end{array} & .\end{cases}
+$$
+與先前不同處在form後加了' | 分群變數'。
+```{r}
+out3<-gls(model,data=airlines,weights=varExp(form=~ LF | BigQ)) 
+summary(out3)
+```
+
+若只單純考慮群組各自有自己的變異程度，而沒有其他解釋變數，如下：
+$$
+\sigma_{i}^{2}=\begin{cases}
+\begin{array}{ccc}
+\sigma_{1}^{2} &  & \text{if }BigQ_{i}=1\text{ (or TRUE)}\\
+\sigma_{2}^{2} &  & \text{if }BigQ_{i}=0\text{ (or FALSE)}
+\end{array} & .\end{cases}
+$$
+
+我們使用varIdent, 並在form裡寫下 ~1 | 區分群組的變數
+```{r}
+out5<-gls(model,data=airlines,weights=varIdent(form=~ 1 | BigQ)) 
+summary(out5)
+```
+
+
+# Breusch-Pagan test
+
+使用與迴歸模型相同的解釋變數群，當作異質變異的解釋變數
+```{r}
+bptest(model,data=airlines)
+```
+
+只使用LF當作異質變異的解釋變數
+```{r}
+bptest(model,varformula=~LF,data=airlines)
+```
