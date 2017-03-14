@@ -1,7 +1,7 @@
 ---
 title: "OLS GLS BP-Test"
 author: "Dr. Lin, Mau-Ting"
-date: "March 19, 2015"
+date: "March 14, 2017"
 output: word_document
 ---
 
@@ -11,9 +11,10 @@ output: word_document
 ```{r}
 rm(list=ls())
 ```
-讀入資料檔
+讀入資料檔，必需在Github裡的資料檔顯示點選Raw，以取得資料Url連結。
 ```{r}
-airlines <- read.table("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/airlines.txt", header=TRUE, quote="\"")
+library(readr)
+airlines <- read_csv("https://raw.githubusercontent.com/tpemartin/Econometric-Analysis/master/Part%20I/airlines.csv")
 ```
 
 設定迴歸模型，並將此模型稱為model
