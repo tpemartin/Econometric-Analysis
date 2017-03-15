@@ -1,0 +1,186 @@
+---
+title: "Basic data observation (1)"
+author: "ML"
+date: "March 15, 2017"
+output: 
+  ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 基本環境設定
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+rm(list=ls()) #清空環境
+library(gcookbook) # 使用R Graphic Cookbook的範例資料
+library(ggplot2) 
+library(dplyr)
+library(tidyr)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(readr)
+airlines <- read_csv("https://raw.githubusercontent.com/tpemartin/Econometric-Analysis/master/Part%20I/airlines.csv")
+```
+
+轉換資料成tbl_df (即Table Dataframe)格式
+
+```{r, echo=TRUE}
+airlines<-tbl_df(airlines)
+```
+
+## 資料描述
+
+基礎統計量有助於確認是否有coding errors.
+```{r, message=FALSE, warning=FALSE}
+library(psych)
+```
+
+C 跟 Q 都有明顯右偏。
+
+```{r, warning=FALSE}
+describe(airlines)
+```
+
+## 原始資料繪圖會看不清楚變數關連。
+
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=Q,y=C)) +
+  geom_point() -> f1
+f1
+```
+
+##log轉換前後的資料分配。
+變數Q
+```{r, message=FALSE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=Q)) +
+  geom_histogram() 
+```
+
+##log轉換前後的資料分配。
+變數log(Q)
+```{r, message=FALSE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=log(Q))) +
+  geom_histogram() 
+```
+
+##log轉換前後的資料分配。
+變數C
+```{r, message=FALSE, fig.height=3, fig.width=3,fig.show='hide'}
+airlines %>% ggplot(aes(x=C)) +
+  geom_histogram() 
+
+airlines %>% ggplot(aes(x=log(C))) +
+  geom_histogram() 
+```
+
+## log(C)與log(Q)的關聯
+```{r}
+airlines %>% ggplot(aes(x=log(Q),y=log(C))) +
+  geom_point() 
+```
+
+## 遺漏變數：A.3假設檢查
+變數PF。
+```{r, message=FALSE,fig.show='hide'}
+airlines %>% ggplot(aes(x=PF)) +
+  geom_histogram() 
+
+airlines %>% ggplot(aes(x=log(PF))) +
+  geom_histogram() 
+```
+
+## 遺漏變數：A.3假設檢查
+條件一：與被解釋變數有關
+PF與C的關聯
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=PF,y=log(C))) +
+  geom_point() 
+```
+
+## 遺漏變數：A.3假設檢查
+條件一：與被解釋變數有關
+PF與C的關聯
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=log(PF),y=log(C))) +
+  geom_point() 
+```
+
+## 遺漏變數：A.3假設檢查
+條件二：與解釋變數有關
+log(PF)的log(Q)關聯
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=log(PF),y=log(Q))) +
+  geom_point() 
+```
+
+## 殘差分析
+
+```{r, message=FALSE, warning=FALSE}
+model<-log(C)~log(Q)+I(log(Q)^2)+log(PF)+LF
+out1<-lm(model,data=airlines)
+summary(out1)
+```
+
+## 殘差分析
+實際值、預期值與殘差
+```{r}
+airlines$predicted <- predict(out1)
+airlines$residuals <- residuals(out1)
+
+airlines$logC <- log(airlines$C)
+airlines %>% select(logC,predicted,residuals)
+```
+
+
+## 殘差分析
+不同log(Q)下的實際值與預期值
+```{r, echo=TRUE, fig.show='hide'}
+airlines %>% ggplot(aes(x=log(Q),y=log(C))) +
+  geom_point() +
+  geom_point(aes(y=predicted),shape=1)+
+  geom_segment(aes(xend=log(Q),yend=predicted))
+```
+
+
+## 殘差分析
+殘差與預期值
+```{r, echo=TRUE, fig.show='hide'}
+airlines %>% ggplot(aes(x=predicted,y=residuals)) +
+  geom_point()
+```
+
+
+## 殘差分析
+殘差平方與預期值
+```{r, echo=TRUE, fig.show='hide'}
+airlines %>% ggplot(aes(x=predicted,y=(residuals)^2)) +
+  geom_point()
+```
+
+
+## 殘差分析
+殘差平方與解釋變數log(Q)
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=log(Q),y=(residuals)^2)) +
+  geom_point()
+```
+
+
+## 殘差分析
+殘差平方與解釋變數log(PF)
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=log(PF),y=(residuals)^2)) +
+  geom_point()
+```
+
+
+## 殘差分析
+殘差平方與解釋變數log(PF)
+```{r, echo=TRUE, fig.height=3, fig.width=3}
+airlines %>% ggplot(aes(x=LF,y=(residuals)^2)) +
+  geom_point()
+```
+
