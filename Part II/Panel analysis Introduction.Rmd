@@ -49,6 +49,6 @@ fatality$beertax_demean<-Within(fatality$beertax,effect=c('individual'))
 
 #Demean 之後再畫一次離散圖
 ```{r}
-ggplot(data=fatality,aes(x=beertax_demean,y=mrall_demean,color=year))+
+ggplot(data=fatality,aes(x=beertax_demean,y=mrall_demean,color=state))+
   geom_point()
 ```
