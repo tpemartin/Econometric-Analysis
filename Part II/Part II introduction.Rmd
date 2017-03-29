@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 # 追踪資料觀查 
-
+測試
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 rm(list=ls()) #清空環境
