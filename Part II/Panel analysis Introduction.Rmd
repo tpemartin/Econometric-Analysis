@@ -1,0 +1,53 @@
+---
+title: "Panel data介紹"
+output: html_notebook
+---
+
+#資料載入
+```{r}
+rm(list=ls())
+fatality <- read.csv("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/fatality.csv")
+```
+
+#載入Panel套件
+```{r, message=FALSE, warning=FALSE}
+library(plm)
+```
+
+#宣告資料為Panel data frame
+```{r}
+fatality<-pdata.frame(fatality,c("state","year"))
+```
+
+#各州啤酒稅（beertax）與車禍死亡率（mrall）
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+fatality %>% ggplot(aes(x=beertax,y=mrall))+
+  geom_point()
+```
+
+#反向因果
+```{r}
+fatality %>% ggplot(aes(y=beertax,x=mrall))+
+  geom_point()
+```
+
+#不同州用不同顏色畫離散圖
+```{r}
+library(ggplot2)
+ggplot(data=fatality,aes(x=beertax,y=mrall,color=state))+
+  geom_point()
+```
+
+#去除每個州的中間點，進行Demean
+```{r}
+fatality$mrall_demean<-Within(fatality$mrall,effect=c('individual'))
+fatality$beertax_demean<-Within(fatality$beertax,effect=c('individual'))
+```
+
+#Demean 之後再畫一次離散圖
+```{r}
+ggplot(data=fatality,aes(x=beertax_demean,y=mrall_demean,color=year))+
+  geom_point()
+```
