@@ -4,9 +4,10 @@ output: html_notebook
 ---
 
 #資料載入
-```{r}
+```{r, message=FALSE, warning=FALSE}
 rm(list=ls())
-fatality <- read.csv("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/fatality.csv")
+library(readr)
+fatality <- read_csv("https://raw.githubusercontent.com/tpemartin/Econometric-Analysis/master/Part%20II/fatality.csv")
 ```
 
 #載入Panel套件
