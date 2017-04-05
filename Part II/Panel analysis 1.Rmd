@@ -1,0 +1,146 @@
+---
+title: "Panel 資料分析（I）"
+author: "Dr. Lin, Mau-Ting"
+date: "March 24, 2015"
+output: html_notebook
+---
+###資料觀察
+```{r}
+rm(list=ls())
+fatality <- read.csv("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/fatality.csv")
+```
+
+載入Panel套件
+```{r}
+library(plm)
+```
+
+宣告資料為Panel data frame
+```{r}
+fatality<-pdata.frame(fatality,c("state","year"))
+```
+
+X軸為beertax Y軸為mrall
+```{r}
+library(dplyr)
+library(ggplot2)
+fatality %>% ggplot(aes(x=beertax,y=mrall))+
+  geom_point()
+```
+
+X軸為mrall Y軸為beertax
+```{r}
+fatality %>% ggplot(aes(y=beertax,x=mrall))+
+  geom_point()
+```
+
+不同州用不同顏色畫離散圖
+```{r}
+library(ggplot2)
+ggplot(data=fatality,aes(x=beertax,y=mrall,color=state))+
+  geom_point()->f1
+f1
+```
+
+不同年用不同顏色畫離散圖
+```{r}
+library(ggplot2)
+ggplot(data=fatality,aes(x=beertax,y=mrall,color=year))+
+  geom_point()
+```
+
+去除每個州的中間點，即進行Demean
+```{r}
+fatality$mrall_demean<-Within(fatality$mrall,effect=c('individual'))
+fatality$beertax_demean<-Within(fatality$beertax,effect=c('individual'))
+```
+
+Demean 之後再畫一次離散圖
+```{r}
+ggplot(data=fatality,aes(x=beertax_demean,y=mrall_demean,color=year))+
+  geom_point()->f2
+f2
+```
+
+###模型估計
+迴歸模型設定
+```{r}
+model<-mrall~beertax
+```
+
+使用Pooled OLS
+```{r}
+pool1<-plm(model, data=fatality, model='pooling')
+summary(pool1)
+```
+
+```{r}
+f1
+str(pool1)
+pool1$coefficients
+f1+stat_function(fun=function(x){
+  pool1$coefficients[1]+pool1$coefficients[2]*x
+  },color="black")->f.ols
+f.ols
+```
+
+使用random effect
+```{r}
+re1<-plm(model, data=fatality, model='random')
+summary(re1)
+f.ols+stat_function(fun=function(x){
+  re1$coefficients[1]+re1$coefficients[2]*x
+  },color="black",linetype="dashed")->f.ols.re
+f.ols.re
+```
+
+使用fixed effects (or called within) models: Oneway (individual) effect
+```{r}
+model
+fe1<-plm(model, data=fatality, model='within', effect='individual')
+summary(fe1)
+```
+
+```{r}
+f2+stat_function(fun=function(x){
+  fe1$coefficients*x
+  },color="blue")->f.fe1
+f.fe1
+```
+
+使用fixed effects (or called within) models: 用Twoways (individual and time) effect
+```{r}
+fe2<-plm(model, data=fatality, model='within', effect='twoways')
+summary(fe2)
+```
+
+```{r}
+f.fe1+stat_function(fun=function(x){
+  fe2$coefficients*x
+  },color="blue",linetype="dashed")->f.fe1.fe2
+f.fe1.fe2
+```
+
+```{r}
+library(stargazer)
+re1
+stargazer(pool1,re1,fe1,fe2,type='html')
+```
+
+###相關檢定
+Hausman test：c_i是否與x_{it}有關
+```{r}
+phtest(fe2,re1)
+```
+
+BP檢定：c_i變異是否齊質
+```{r}
+pwtest(pool1)
+```
+
+### White Test for heteroscedasticity
+```{r}
+library(lmtest)
+lm1<-lm(mrall~beertax,data=fatality)
+bptest(lm1,varformula=~beertax+I(beertax^2), data=fatality)
+```
