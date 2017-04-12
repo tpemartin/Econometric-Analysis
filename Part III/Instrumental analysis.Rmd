@@ -1,0 +1,49 @@
+---
+title: "工具變數"
+output: html_notebook
+---
+# Download data and unzip the data
+```{r}
+download.file('http://economics.mit.edu/files/397', 'asciiqob.zip')
+unzip('asciiqob.zip')
+```
+
+# Read the data into a dataframe
+```{r}
+pums        <- read.table('asciiqob.txt',
+                          header           = FALSE,
+                          stringsAsFactors = FALSE)
+names(pums) <- c('lwklywge', 'educ', 'yob', 'qob', 'pob')
+```
+
+# 計算不同出生年yob及出年季qob下的平均
+dplyr::summarise_each()計算個別變數特徵值，並用原變數名稱命名。
+```{r}
+pums.qob.means  <- pums %>% group_by(yob, qob) %>% summarise_each(funs(mean))
+```
+
+# 產生日期變數
+```{r}
+library(lubridate)
+yq.txt<-paste(paste("19",pums.qob.means$yob,sep=""),pums.qob.means$qob,sep="-")
+pums.qob.means$yqob <- yq(yq.txt)
+```
+
+# 出生季節與教育年限
+```{r}
+pums.qob.means %>% ggplot(aes(x = yqob, y = educ)) +
+  geom_line() +
+  geom_point(aes(color=qob)) 
+
+pums.qob.means$qob2<-factor(pums.qob.means$qob)
+pums.qob.means %>% ggplot(aes(x = yqob, y = educ)) +
+  geom_line() +
+  geom_point(aes(color=qob2))
+```
+
+# 出生季節與薪資
+```{r}
+pums.qob.means %>% ggplot(aes(x = yqob, y = lwklywge)) +
+  geom_line() +
+  geom_point(aes(color=qob2))
+```
