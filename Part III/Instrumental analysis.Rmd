@@ -4,11 +4,15 @@ output: html_notebook
 ---
 # Download data and unzip the data
 ```{r}
+rm(list=ls())
 download.file('http://economics.mit.edu/files/397', 'asciiqob.zip')
 unzip('asciiqob.zip')
 ```
 
 # Read the data into a dataframe
+qob:quarter of birth
+yob:year of birth
+pob: place of birth (state level)
 ```{r}
 pums        <- read.table('asciiqob.txt',
                           header           = FALSE,
@@ -19,6 +23,7 @@ names(pums) <- c('lwklywge', 'educ', 'yob', 'qob', 'pob')
 # 計算不同出生年yob及出年季qob下的平均
 dplyr::summarise_each()計算個別變數特徵值，並用原變數名稱命名。
 ```{r}
+library(dplyr)
 pums.qob.means  <- pums %>% group_by(yob, qob) %>% summarise_each(funs(mean))
 ```
 
@@ -31,6 +36,7 @@ pums.qob.means$yqob <- yq(yq.txt)
 
 # 出生季節與教育年限
 ```{r}
+library(ggplot2)
 pums.qob.means %>% ggplot(aes(x = yqob, y = educ)) +
   geom_line() +
   geom_point(aes(color=qob)) 
@@ -47,3 +53,92 @@ pums.qob.means %>% ggplot(aes(x = yqob, y = lwklywge)) +
   geom_line() +
   geom_point(aes(color=qob2))
 ```
+
+# 簡單OLS
+```{r}
+col1 <- lm(lwklywge ~ educ, pums)
+```
+
+# OLS 控制 YOB, POB
+類別變數必需先使用factor()轉換
+```{r}
+col2 <- lm(lwklywge ~ educ + factor(yob) + factor(pob), pums)
+
+
+```
+OLS結果比較
+```{r, warning=FALSE}
+library(stargazer)
+stargazer(col1,col2,type='text',keep='educ',
+          column.labels = c('OLS','OLS.yob.pob'))
+```
+
+# 使用qob當工具變數
+創造qob虛擬變數
+```{r}
+library(dummies)
+qob.dummies<-dummy(pums$qob)
+pums<-data.frame(pums,qob.dummies)
+```
+
+# IV: 2SLS with instrument QOB = 1
+```{r}
+library(AER)
+# library(psych)
+# describe(pums)
+col3 <- ivreg(lwklywge ~ educ, ~ qob1, pums)
+```
+
+# IV: 2SLS with YOB, POB dummies and instrument QOB = 1
+```{r}
+col4 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
+	                   ~ factor(yob) + factor(pob) + qob1,
+	          pums)
+```
+
+
+# Create dummy for quarter 1 or 2
+```{r}
+library(magrittr)
+pums %<>% mutate(qob1or2=(qob == 1 | qob == 2))
+```
+
+# IV: 2SLS with YOB, POB dummies and instrument (QOB = 1 | QOB = 2)
+```{r}
+col5 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
+                       ~ factor(yob) + factor(pob) + qob1or2,
+              pums)
+```
+
+# IV: 2SLS with YOB, POB dummies and full QOB dummies
+```{r, warning=FALSE}
+col6 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
+	                   ~ factor(yob) + factor(pob) + factor(qob),
+	          pums)
+```
+
+# Column 7: 2SLS with YOB, POB dummies and full QOB dummies interacted with YOB
+交叉作用符號*與:，詳見Introduction to R裡的11.1 Defining statistical models; formulae. 
+```{r, warning=FALSE}
+col7 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
+	                   ~ factor(pob) + factor(qob) * factor(yob),
+	          pums)
+
+```
+# 綜合報表輸出
+```{r, warning=FALSE}
+stargazer(col2,col3,col4,col5,col6,col7,type="text",
+          column.labels = c("yob.pob.OLS",
+                            "IV.qob1","yob.pob.IV.qob1",
+                            "yob.pob.IV.qob1or2",
+                            "yob.pob.IV.qoball",
+                            "yob.pob.IV.qob*yob"),
+          keep="educ")
+```
+
+# 假設檢定
+利用summary(.,diagnostic = TRUE)
+```{r}
+summary(col7,diagnostics = TRUE)
+```
+
