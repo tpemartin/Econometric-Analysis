@@ -1,0 +1,223 @@
+---
+title: "2017 數量方法期中考"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+首先請執行以下程式
+```{r}
+rm(list=ls())
+#install.packages(c("plm","ggplot2"))
+```
+
+# 第一大題：閱讀與數學
+我們想了解「閱讀能力對數學學習成效是否有幫助」，學者搜集了來自不同學校學生的資料存在gpw.csv檔中。
+
+1. 引入gpw資料，並稱此dataframe為gpw。
+```{r q1}
+library(readr)
+gpw <- read_csv("gpw.csv")
+# gpw <- na.omit(gpw)
+# library(dplyr)
+# gpw %>% select(-X1_1)-> gpw
+# write.csv(gpw,file="gpw.csv")
+```
+
+2. 首先繪製X軸為閱讀成績(reading)與Y軸為數學成績(math)的離散圖。
+```{r q2}
+library(dplyr)
+library(ggplot2)
+gpw %>% ggplot(aes(x=reading,y=math)) +
+  geom_point() +
+  geom_smooth(method="lm",se=FALSE) -> q2
+q2
+```
+
+3. 使用簡單迴歸估計以下迴歸式，並將估計結果存成名為ols1的物件：
+$$math_i=\beta_0+\beta_1 reading_i+\epsilon_i$$
+並說明閱讀成績對數學成績的影響。
+```{r q3}
+gpw %>% lm(math~reading,data=.) -> ols1
+ols1
+```
+
+第2題圖形所反映的不見得是閱讀能力所造成的數學學習狀態的直接影響，有可能是學生之前的個人智識含量高低差異所造成。假設學生之前的智識含量可以用他（她）個人上學年的數學成績(pre_math)來捕捉。
+
+4. 使用圖形佐證，說明遺漏pre_math可能造成reading係數估計偏誤。
+```{r q4}
+gpw %>% ggplot(aes(x=pre_math)) -> f.pre_math
+f.pre_math+geom_point(aes(y=math))
+f.pre_math+geom_point(aes(y=reading))
+```
+
+5.使用簡單迴歸估計法估計以下迴歸式，並將估計結果存成名為ols2的物件：
+$$math_i=\beta_0+\beta_1 reading_i+\beta_2 pre\_math_i+\epsilon_i$$
+使用stargazer(,type="text")比較ols1與ols2的reading係數估計結果，並說明差異原因。 
+```{r q5}
+gpw %>% lm(math~reading+pre_math,data=.)->ols2
+library(stargazer)
+stargazer(ols1,ols2,type="text")
+```
+
+6. 老師的教學經驗(teacher_exp)也可能會影響學生數學與閱讀成績，請繪製教學經驗與數學成績，及教學經濟與閱讀成績的離散圖。
+```{r q6}
+gpw %>% ggplot(aes(x=teacher_exp)) -> f.teacher_exp
+f.teacher_exp+geom_point(aes(y=math))
+f.teacher_exp+geom_point(aes(y=reading))
+```
+
+7. 使用簡單迴歸估計法估計以下迴歸式，並將估計結果存成名為ols3的物件：
+$$math_i=\beta_0+\beta_1 reading_i+\beta_2 pre\_math_i+\beta_3 teacher\_exp_i+\epsilon_i$$
+使用stargazer(,type="text")比較ols2與ols3的reading係數估計結果，並說明為什麼reading係數估計差異沒有先前ols1比上ols2大的原因。 
+```{r q7}
+gpw %>% lm(math~reading+pre_math+teacher_exp,data=.)->ols3
+library(stargazer)
+stargazer(ols2,ols3,type="text")
+```
+
+8. 考慮閱讀能力對數學成績有二次多項式的影響：
+$$math_i=\beta_0+\beta_1 reading_i+\beta_2 reading_i^2+\beta_3 pre\_math_i+\epsilon_i$$
+估計其結果，並進行White異質性檢定，且將檢定函數結果存在名為q8的物件。
+```{r q8}
+library(lmtest)
+lm1<-lm(math~reading+I(reading^2)+pre_math,data=gpw)
+q8<-bptest(lm1,varformula=~reading*pre_math+I(reading^2)*pre_math+I(reading^3), data=gpw)
+q8
+```
+
+9. 假設我們認為來自不同學校的學生其模型殘差會有異質變異。初步資料觀察，我們可以先看來自不同學校(schoo_id)的學生之數學成績分佈標準差，請計算各校數學成績標準差後並此標準差分配之直方圖(geom_histogram)，說明是否因學校不同有明顯的異質變異可能。
+```{r q9}
+library(dplyr)
+gpw %>% group_by(school_id) %>% summarise(math.sd=sd(math,na.rm=TRUE)) %>%
+  ggplot(aes(x=math.sd)) +
+  geom_histogram()
+```
+
+10. 重新估計ols3模型，但考慮使用WLS以反應因學校而異的異質變異：
+$$math_i=\beta_0+\beta_1 reading_i+\beta_2 pre\_math_i+\beta_3 teacher\_exp_i+\epsilon_i$$
+
+為方便估計起見，我們依據第9題的標準差大小分成大於等於0.5的學校與小於0.5的學校。
+
+i) 在gpw裡產生一個新的類別變數稱為big.sd，其值為1若該學校的數學成績標準差大於等於0.5，反之為0. 
+```{r q10-1}
+gpw %>% group_by(school_id) %>% mutate(big.sd=(sd(math)>=0.5)) -> gpw
+```
+
+ii) 以big.sd=1與否來進行異質變異下的WLS估計，並將結果存成wls1物件。
+```{r q10-2}
+library(nlme)
+gls(math~reading+pre_math+teacher_exp,data=gpw,weights = varIdent(~1|big.sd))->wls1
+summary(wls1)
+```
+
+iii) 請對上述的異質變異進行檢定，並將檢定函數結果存在名為q10.3的物件。
+```{r q10-3}
+bptest(math~reading+pre_math+teacher_exp,varformula=~big.sd,data=gpw)->q10.3
+q10.3
+```
+
+11. 請問在這題的異質變異設定下，我們可以使用OLS嗎？
+
+> 以下題目不考慮異質變異
+
+12. 我們擔心不同學校有其不可忽視的學校效果，請計算每個學校的平均數學成績（稱為mean.math）與平均閱讀成績（稱為mean.reading），並繪製x軸為mean.reading，y軸為mean.math的離散圖。
+```{r q12}
+gpw %>% group_by(school_id) %>% summarise(mean.math=mean(math),mean.reading=mean(reading)) %>%
+  ggplot(aes(x=mean.reading,y=mean.math)) +
+  geom_point()
+```
+
+13. 說明：若第12小題的關連主要為學校效果所產生，單純迴歸math在reading上而不控制學校效果，reading的估計係數會高估還是低估？為什麼？
+
+14. 考慮如下的學校固定效果模型：
+$$math_{it}=c_i+\beta_1 reading_{it}+\beta_2 pre\_math_{it}+\beta_3 teacher\_exp_{it}+\epsilon_{it}$$,
+其中下標it表示資料來自第i個學校的第t個學生。利用student_id變數當做t下標的判斷變數，school_id為i下標的判斷變數，宣告gpw成為一個pdata.frame.
+```{r q14}
+library(plm)
+pdata.frame(gpw,c("school_id","student_id")) -> gpw2
+```
+
+15. 分別使用pooled OLS, 隨機效果模型，及固定效果模型估計14題的迴歸式，並分別把三種估計結果分別存成poolOLS1, RE1, 及FE1 三個物件
+```{r q15}
+poolOLS1<-plm(math~reading+pre_math+teacher_exp,data=gpw2,model="pooling")
+RE1<-plm(math~reading+pre_math+teacher_exp,data=gpw2,model="random")
+FE1<-plm(math~reading+pre_math+teacher_exp,data=gpw2,model="within",effect = "individual")
+```
+
+16. 假設pooled OLS可使用下，請檢驗是否存學校效果來合理化使用隨機效果模型的使用？檢定函數結果請存在名為q16的物件。
+```{r q16}
+q16<-pwtest(poolOLS1)
+q16
+```
+
+17. pooled OLS在這資料裡可以使用嗎？請進行相關檢定，且將檢定函數結果請存在名為q17的物件。
+```{r q17}
+q17<-phtest(FE1,RE1)
+q17
+```
+
+***
+#第二大題：教育程度與生育率
+
+為研究非洲Botswana婦女教育水準與生育子女數的關係，研究者搜集了一群婦女的資料，變數包含小孩數目(children)、 教育年限(educ) 及年齡(age)等
+
+18. 載入fertil2.csv資料
+```{r q18}
+fertil2 <- read_csv("fertil2.csv")
+```
+
+19. 請畫出不同年齡(age)下的平均小孩數，與不同年齡下的平均教育年限。
+```{r q19}
+fertil2 %>% group_by(age) %>% summarise(mean.children=mean(children)) %>%
+  ggplot(aes(x=age,y=mean.children)) +
+  geom_point()+geom_line()
+fertil2 %>% group_by(age) %>% summarise(mean.educ=mean(educ)) %>%
+  ggplot(aes(x=age,y=mean.educ)) +
+  geom_point()+geom_line()
+```
+
+20. 從上題的觀察，如果考慮如下的簡單迴歸模，所估出的educ係數會偏高還是偏低？為什麼？
+$$children_i=\beta_{0}+\beta_{1}educ_i+\epsilon_i$$
+
+21. 使用OLS估計以下模型：
+$$children_i=\beta_{0}+\beta_{1}educ_i+\beta_{2}age_i+\epsilon_i$$
+請計算所有$\beta$係數的估計值及標準誤。
+```{r q21}
+ols21<-lm(children~educ+age,data=fertil2)
+library(lmtest)
+coeftest(ols21,vcov=vcovHC(ols21,type='HC0'))
+```
+
+研究者擔心潛在遺漏變數會造成educ係數估計偏誤，因而考慮使用代表為前半年出生的虛擬變數frsthalf為工具變數。
+
+22. 請分別計算是否為前半年出生的兩群人之平均教育年限（變數取名mean.children）及平均小孩數目（變數取名mean.educ）。
+```{r q22}
+fertil2 %>% group_by(frsthalf) %>% summarise(mean.children=mean(children),
+                                             mean.educ=mean(educ))
+```
+
+23. 考慮如下的結構式：
+$$ children_i=\beta_0+\beta_1 educ_i +\epsilon_i$$
+及IV關連式：
+$$ educ_i =\gamma_0 +\gamma_1 frsthalf + u_i$$
+說明22題中兩群人平均小孩數目相減除以兩群人平均教育年限相減，可以還原結構式中educ的係數。
+
+24. 針對educ，除了frsthalf外，我們再考慮使用虛擬變數「為天主教徒(catholic)」這個工具變數。請使用工具變數法估計下式，並將ivreg()函數估計結果存在名為iv24的物件。：
+$$children_i=\beta_{0}+\beta_{1}educ_i+\beta_{2}age_i+\epsilon_i$$
+```{r q24}
+library(AER)
+fertil2 %>% ivreg(children~educ+age,~frsthalf+catholic+age,data=.) -> iv24
+iv24
+```
+
+
+25. 請進行以下三個檢定
+i) 是否可以不使用工具變數法，單純使用OLS來估計educ的效果。
+ii) 所找的工具變數是否符合外生性條件。
+iii) 工具變數群是否夠強。
+請將檢定所依據的summary函數輸出成q25物件
+```{r q25}
+summary(iv24,diagnostics = TRUE) -> q25
+q25
+```
+

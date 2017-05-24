@@ -1,0 +1,157 @@
+---
+title: "Binary choice and ordered choice estimation"
+author: "林茂廷老師"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+# 二元選擇模型
+清除記憶體，並載入資料  
+Grade - binary variable indicating whether or not a student's grade
+            improved.  1 indicates an improvement.  
+TUCE  - Test score on economics test  
+PSI   - participation in program  
+GPA   - Student's grade point average  
+```{r}
+rm(list=ls())
+file.name<-file.path(getwd(),"Spector and Mazzeo 1980.csv")
+data.set <- read.csv(file.name)
+```
+
+# 初步資料觀察
+先看看有無參加PSI補救課程的人，成績是否改善的次數分配表。首先，將PSI與GRADE改成factor class。
+
+將PSI與GRADE改成factor class
+```{r}
+factor(data.set$PSI) -> data.set$PSI
+factor(data.set$GRADE) -> data.set$GRADE
+```
+
+magrittr套件可以使用更多pipeline語法。  
+* `%<>%` 處理完回傳  
+使用pipeline
+```{r}
+library(magrittr)
+data.set$PSI %<>% factor()
+data.set$GRADE %<>% factor()
+```
+
+察看次數分配
+```{r}
+data.set %>%  dplyr::select(PSI,GRADE) %>%
+  table() -> tb1; tb1
+```
+
+有參加與沒參加PSI的人，成績有進步GRADE=1的比例。
+```{r}
+tb1 %>% prop.table(margin=1) %>% # row 為條件狀況 
+  addmargins(margin=2) # 增加一個 column margin
+```
+
+成績有進步的人，有多少比例有參加PSI
+```{r}
+tb1 %>% prop.table(margin=2) %>% # column 為條件狀況
+  addmargins(margin=1) # 增加一個 row margin
+```
+
+# 遺漏變數憂慮
+過去的GPA是否會造成遺漏變數偏誤  
+檢驗GPA與PSI的關係
+```{r}
+data.set %>% group_by(PSI) %>%
+  summarise(mean.GPA=mean(GPA),group="PSI") %>%
+  rename(treatment=PSI)-> sumPSI
+data.set %>% group_by(GRADE) %>%
+  summarise(mean.GPA=mean(GPA),group="GRADE") %>%
+  rename(treatment=GRADE) -> sumGRADE
+
+summary.both<-rbind(sumPSI,sumGRADE)
+
+summary.both %>%
+  ggplot(aes(x=treatment,y=mean.GPA,color=group)) +
+  geom_line()+ 
+  geom_point() -> f.nogroup; f.nogroup
+
+summary.both %>%
+  ggplot(aes(x=treatment,y=mean.GPA,color=group,group=group)) +
+  geom_line()+ 
+  geom_point() -> f.group; f.group
+```
+
+估計模型
+$$\Pr(GRADE=1)=F(\beta_0+\beta_1 GPA+\beta_2 TUCE+\beta_3 PSI)$$
+使用Logit模型
+```{r}
+Logit<-glm(GRADE~GPA+TUCE+PSI,data=data.set,family=binomial(link='logit'))
+```
+
+接下來我們會用到pscl與mfx套件來記算其他統計量  
+計算(McFadden)Pseudo-R2  
+```{r}
+library(pscl)
+pR2(Logit) #計算Pseudo-R2
+```
+計算預測準確率  
+Null Model: 沒有帶解釋變數的模型
+```{r}
+hitmiss(Logit) #計算預測準確率
+```
+
+計算'代表性個人'邊際效果  
+```{r}
+library(mfx)
+logitmfx(Logit,data.set,atmean=TRUE) #計算'代表性個人'邊際效果
+```
+計算全體邊際效果的平均  
+```{r}
+logitmfx(Logit,data.set,atmean=FALSE) #計算全體邊際效果的平均
+```
+
+使用Probit模型
+```{r}
+Probit<-glm(GRADE~GPA+TUCE+PSI,data=data.set,family=binomial(link='probit'))
+pR2(Probit)
+hitmiss(Probit)
+probitmfx(Probit,data.set)
+```
+
+報表比較  
+不同模型設定的係數比較無意義。
+```{r}
+library(stargazer)
+stargazer(Logit,Probit,type='text',summary=TRUE)
+```
+
+# 多元可排序選擇模型
+戴入使用套件MASS與資籵
+```{r}
+library(MASS)
+data.set2<-read.csv("German Health Care Utilization.csv")
+```
+將應變數改成ordered格式
+```{r}
+data.set2$hsat %<>% as.ordered()
+```
+
+Ordered Logit估計
+```{r}
+o.logit<-polr(hsat~age+hhninc+hhkids+educ+married+working,
+     data.set2)
+pR2(o.logit)
+hitmiss(o.logit)
+summary(o.logit)
+```
+
+Ordered Probit估計
+```{r}
+o.probit<-polr(hsat~age+married,
+               data.set2,method='probit')
+pR2(o.probit)
+hitmiss(o.probit)
+summary(o.probit)
+```
+
+比較兩模型
+```{r}
+stargazer(o.probit,o.logit,type='text')
+```
