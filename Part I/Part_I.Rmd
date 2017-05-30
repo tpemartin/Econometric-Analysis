@@ -23,8 +23,8 @@ $$
 +\beta_2{log(Q_i)}^2
 +\beta_3\log(PF_i)+LF_i+\epsilon_i
 $$
-```{r}
-model<-log(C)~log(Q)+I(log(Q)^2)+log(PF)+LF
+```{r model}
+model<- log(C)~log(Q)+I(log(Q)^2)+log(PF)+LF
 ```
 
 對model模型進行OLS估計，並使用airlines資料
@@ -116,7 +116,7 @@ summary(out5)
 # Breusch-Pagan test
 
 使用與迴歸模型相同的解釋變數群，當作異質變異的解釋變數
-```{r}
+```{r  bptest 1}
 bptest(model,data=airlines)
 ```
 

@@ -13,6 +13,7 @@ unzip('asciiqob.zip')
 qob:quarter of birth
 yob:year of birth
 pob: place of birth (state level)
+
 ```{r}
 pums        <- read.table('asciiqob.txt',
                           header           = FALSE,
@@ -24,7 +25,8 @@ names(pums) <- c('lwklywge', 'educ', 'yob', 'qob', 'pob')
 dplyr::summarise_each()計算個別變數特徵值，並用原變數名稱命名。
 ```{r}
 library(dplyr)
-pums.qob.means  <- pums %>% group_by(yob, qob) %>% summarise_each(funs(mean))
+pums.qob.means  <- pums %>% group_by(yob, qob) %>% summarise_each(funs(mean)) 
+pums.qob.means
 ```
 
 # 產生日期變數
@@ -45,6 +47,13 @@ pums.qob.means$qob2<-factor(pums.qob.means$qob)
 pums.qob.means %>% ggplot(aes(x = yqob, y = educ)) +
   geom_line() +
   geom_point(aes(color=qob2))
+
+pums %>% group_by(qob) %>%
+  summarise(mean.lwage=mean(lwklywge),
+            mean.educ=mean(educ)) %>%
+  mutate(qob2=factor(qob)) %>%
+  ggplot(aes(x=qob))+
+  geom_bar(aes(y=mean.educ),stat="identity")
 ```
 
 # 出生季節與薪資
@@ -57,14 +66,17 @@ pums.qob.means %>% ggplot(aes(x = yqob, y = lwklywge)) +
 # 簡單OLS
 ```{r}
 col1 <- lm(lwklywge ~ educ, pums)
+col1
 ```
 
 # OLS 控制 YOB, POB
 類別變數必需先使用factor()轉換
 ```{r}
+class(pums$pob)
+class(pums$yob)
 col2 <- lm(lwklywge ~ educ + factor(yob) + factor(pob), pums)
-
-
+col2
+lm(lwklywge ~ educ + factor(yob) , pums)
 ```
 OLS結果比較
 ```{r, warning=FALSE}
@@ -115,6 +127,9 @@ col5 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
 col6 <- ivreg(lwklywge ~ factor(yob) + factor(pob) + educ,
 	                   ~ factor(yob) + factor(pob) + factor(qob),
 	          pums)
+col6
+stargazer(col1,col2,col6,type='text',keep='educ',
+          column.labels = c('OLS','OLS.yob.pob','IV'))
 ```
 
 # Column 7: 2SLS with YOB, POB dummies and full QOB dummies interacted with YOB
@@ -139,6 +154,6 @@ stargazer(col2,col3,col4,col5,col6,col7,type="text",
 # 假設檢定
 利用summary(.,diagnostic = TRUE)
 ```{r}
-summary(col7,diagnostics = TRUE)
+summary(col6,diagnostics = TRUE)
 ```
 

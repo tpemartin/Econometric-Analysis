@@ -33,7 +33,7 @@ rm(list=ls())
 data.set <- read.csv("Mroz.csv")
 ```
 
-# 資料設限(Censoring)
+# 資料設限(Censoring) 
 工時(HOURS)面臨左尾設限在0工時
 ```{r}
 library(dplyr)

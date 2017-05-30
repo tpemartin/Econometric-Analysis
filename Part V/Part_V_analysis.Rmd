@@ -14,6 +14,8 @@ PSI   - participation in program
 GPA   - Student's grade point average  
 ```{r}
 rm(list=ls())
+library(dplyr)
+library(ggplot2)
 file.name<-file.path(getwd(),"Spector and Mazzeo 1980.csv")
 data.set <- read.csv(file.name)
 ```
@@ -89,9 +91,11 @@ Logit<-glm(GRADE~GPA+TUCE+PSI,data=data.set,family=binomial(link='logit'))
 計算(McFadden)Pseudo-R2  
 ```{r}
 library(pscl)
-pR2(Logit) #計算Pseudo-R2
+pR2(Logit)->R2.result; R2.result #計算Pseudo-R2
 ```
-計算預測準確率  
+Pseudo-R2為`r R2.result["McFadden"]`
+
+計算預測準確率   
 Null Model: 沒有帶解釋變數的模型
 ```{r}
 hitmiss(Logit) #計算預測準確率
@@ -100,8 +104,10 @@ hitmiss(Logit) #計算預測準確率
 計算'代表性個人'邊際效果  
 ```{r}
 library(mfx)
-logitmfx(Logit,data.set,atmean=TRUE) #計算'代表性個人'邊際效果
+logitmfx(Logit,data.set,atmean=TRUE)-> result.atmean; result.atmean #計算'代表性個人'邊際效果
 ```
+平均性代表性個人，(1) 過去GPA每上升0.1時，其成績進步的可能性會上升`r result.atmean$mfxest["GPA","dF/dx"]*0.1`; (2) 過去TUCE每上升1分時，其成績進步的可能性會上升`r result.atmean$mfxest["TUCE","dF/dx"]`； (3) 有參與PSI比沒參與PSI的人，其成績進步的可能性會上升`r result.atmean$mfxest["PSI1","dF/dx"]`。
+
 計算全體邊際效果的平均  
 ```{r}
 logitmfx(Logit,data.set,atmean=FALSE) #計算全體邊際效果的平均

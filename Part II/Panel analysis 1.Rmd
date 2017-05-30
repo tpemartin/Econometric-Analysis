@@ -1,7 +1,7 @@
 ---
-title: "Panel 資料分析（I）"
+title: "Panel 資料分析"
 author: "Dr. Lin, Mau-Ting"
-date: "March 24, 2015"
+date: "Apr 5, 2017"
 output: html_notebook
 ---
 ###資料觀察
@@ -125,7 +125,7 @@ f.fe1.fe2
 ```{r}
 library(stargazer)
 re1
-stargazer(pool1,re1,fe1,fe2,type='html')
+stargazer(pool1,re1,fe1,fe2,type='text')
 ```
 
 ###相關檢定
@@ -134,7 +134,7 @@ Hausman test：c_i是否與x_{it}有關
 phtest(fe2,re1)
 ```
 
-BP檢定：c_i變異是否齊質
+BP檢定：是否存在州的隨機效果項c_i
 ```{r}
 pwtest(pool1)
 ```
