@@ -106,7 +106,7 @@ hitmiss(Logit) #計算預測準確率
 library(mfx)
 logitmfx(Logit,data.set,atmean=TRUE)-> result.atmean; result.atmean #計算'代表性個人'邊際效果
 ```
-平均性代表性個人，(1) 過去GPA每上升0.1時，其成績進步的可能性會上升`r result.atmean$mfxest["GPA","dF/dx"]*0.1`; (2) 過去TUCE每上升1分時，其成績進步的可能性會上升`r result.atmean$mfxest["TUCE","dF/dx"]`； (3) 有參與PSI比沒參與PSI的人，其成績進步的可能性會上升`r result.atmean$mfxest["PSI1","dF/dx"]`。
+平均性代表性個人，(1) 過去GPA每上升0.1時，其成績進步的可能性會上升`r result.atmean$mfxest["GPA","dF/dx"]*0.1`; (2) 過去TUCE每上升1分時，其成績進步的可能性會上升`r result.atmean$mfxest["TUCE","dF/dx"]`； (3) 有參與PSI比沒參與PSI的人，其成績進步的可能性會上升`r result.atmean$mfxest["PSI1","dF/dx"]`。 
 
 計算全體邊際效果的平均  
 ```{r}
