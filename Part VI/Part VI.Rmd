@@ -1,0 +1,157 @@
+---
+title: "Truncation, Censoring, Sample Selection and Treatment Effects"
+author: "Dr. Mau-Ting Lin"
+date: "June 10, 2015"
+output: html_document
+---
+
+變數定義：
+  1. inlf                     =1 if in labor force, 1975
+  2. hours                    hours worked, 1975
+  3. kidslt6                  # kids < 6 years
+  4. kidsge6                  # kids 6-18
+  5. age                      woman's age in yrs
+  6. educ                     years of schooling
+  7. wage                     estimated wage from earns., hours
+  8. repwage                  reported wage at interview in 1976
+  9. hushrs                   hours worked by husband, 1975
+ 10. husage                   husband's age
+ 11. huseduc                  husband's years of schooling
+ 12. huswage                  husband's hourly wage, 1975
+ 13. faminc                   family income, 1975
+ 14. mtr                      fed. marginal tax rate facing woman
+ 15. motheduc                 mother's years of schooling
+ 16. fatheduc                 father's years of schooling
+ 17. unem                     unem. rate in county of resid.
+ 18. city                     =1 if live in SMSA
+ 19. exper                    actual labor mkt exper
+ 20. nwifeinc                 (faminc - wage*hours)/1000
+ 21. lwage                    log(wage)
+ 22. expersq                  exper^2
+```{r}
+rm(list=ls())
+data.set <- read.csv("Mroz.csv")
+```
+
+# 資料設限(Censoring)
+工時(HOURS)面臨左尾設限在0工時
+```{r}
+library(dplyr)
+library(ggplot2)
+data.set %>% ggplot(aes(x=HOURS)) +
+  geom_histogram()
+
+data.set %>% ggplot(aes(y=HOURS,x=EXPER)) +
+  geom_point()
+```
+
+使用Tobit regression
+使用套件:AER
+```{r}
+library(AER)
+```
+
+使用函數tobit(迴歸模型,data=資料,left=(左尾設限值，若無則寫 -Inf), right=(右尾設限值，若無則寫Inf))
+```{r}
+tobit.out <- tobit(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,left=0,right=Inf) 
+```
+
+估計結果
+```{r}
+library(stargazer)
+stargazer(tobit.out,type='text')
+```
+
+# 樣本選擇(Sample Selection)
+
+使用套件：sampleSelection
+```{r}
+library(sampleSelection)
+```
+
+迴歸模型：
+$$LWAGE=\beta_0+\beta_1 EXPER+\beta_2 I(EXPER^2)+\beta_3 EDUC+\epsilon$$
+迴歸模型表示：LWAGE~EXPER+I(EXPER^2)+EDUC
+
+選擇模型：INLF=1 表示資料有被選進來
+$$\Pr(INLF=1)=\Phi(\alpha_0+\alpha_1 NWIFEINC+\alpha_2 EDUC+\alpha_3 EXPER+\alpha_4 I(EXPER^2)+\alpha_5 AGE+\alpha_6 KIDSLT6+\alpha_7 KIDSGE6)$$
+選擇模型表示：INLF~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6
+
+使用函數selection(選擇模型, 迴歸模型, data=資料, method='估計方式')
+
+## Heckit 兩階段估計
+```{r}
+HK <- selection(INLF~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,LWAGE~EXPER+I(EXPER^2)+EDUC,data=data.set,method='2step')
+```
+
+## MLE估計
+```{r}
+MLE <- selection(INLF~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,LWAGE~EXPER+I(EXPER^2)+EDUC,data=data.set)
+```
+
+## 估計結果
+迴歸模型結果
+```{r}
+stargazer(HK,MLE,type='text',
+          column.labels=c('Heckit','MLE'))
+```
+
+選擇模型結果: 需註明selection.equation=TRUE
+```{r}
+stargazer(HK,MLE,type='text',selection.equation=TRUE,
+          column.labels=c('Heckit','MLE'))
+```
+
+## 效應評估 (Estimation of Treatment Effect)
+資料： jtrain2.csv
+
+```{r}
+data.set2<-read.csv("~/Desktop/Dropbox/Courses/Econometric Analysis/Data/jtrain2.csv")
+attach(data.set2) 
+```
+欲估計的模型：
+$$unem78_i=\beta_0+\delta train_i+\beta_1 unem74_i+\beta_2 unem75_i+\beta_3 age_i+\beta_4 educ_i+\beta_5 black_i+\beta_6 hisp_i+\beta_7 married_i+\epsilon_i$$
+重點在評估受試前(train=1)、後(train=0)的效果，即$\delta$
+
+
+受試選擇模型：train=1 表示有接受試驗(treatment)
+$$\Pr(train=1)=\Phi(\alpha_0+\alpha_1 unem74+\alpha_2 unem75+\alpha_3 age+\alpha_4 educ+\alpha_5 black+\alpha_6 hisp+\alpha_7 married)$$
+受試選擇模型表示：train~unem74+unem75+age+educ+black+hisp+married
+
+第一階段：估計受試選擇模型
+使用sampleSelection套件下的probit函數，使用法
+probit(受試選擇模型, data=資料)
+這裡資料先前已attach故不用寫。
+```{r}
+model<-probit(train~unem74+unem75+age+educ+black+hisp+married)
+```
+
+粹取inverse Mill's ratio (IMR)
+```{r}
+invM<-invMillsRatio(model)
+invM1<-invM$IMR1
+invM0<- -invM$IMR0
+```
+上面會得到train=1的IMR(invM1)與train=0的IMR(invM0)
+故每個人的IMR可以寫成$$invM1_i\times train_i+invM0_i\times (1-train_i),$$即
+```{r}
+lambda<-invM1*train+invM0*(1-train)
+```
+
+第二階段：修正迴歸模型
+
+原始迴歸模型：
+$$unem78_i=\beta_0+\delta train_i+\beta_1 unem74_i+\beta_2 unem75_i+\beta_3 age_i+\beta_4 educ_i+\beta_5 black_i+\beta_6 hisp_i+\beta_7 married_i+\epsilon_i$$
+
+修正迴歸模型：多加inverse Mill's ratio(lambda 變數)
+$$unem78_i=\beta_0+\delta train_i+\beta_1 unem74_i+\beta_2 unem75_i+\beta_3 age_i+\beta_4 educ_i+\beta_5 black_i+\beta_6 hisp_i+\beta_7 married_i+\gamma \color{red}{lambda_i}+\epsilon_i$$
+
+進行修正模型估計
+```{r}
+HKtreatment<-lm(unem78~train+unem74+unem75+age+educ+black+hisp+married+lambda,data=data.set2)
+```
+
+結果
+```{r}
+stargazer(HKtreatment,type='text')
+```
