@@ -1,7 +1,7 @@
 ---
 title: "Truncation, Censoring, Sample Selection and Treatment Effects"
 author: "Dr. Mau-Ting Lin"
-date: "June 10, 2015"
+date: "May 31, 2017"
 output: html_document
 ---
 
@@ -54,6 +54,9 @@ library(AER)
 使用函數tobit(迴歸模型,data=資料,left=(左尾設限值，若無則寫 -Inf), right=(右尾設限值，若無則寫Inf))
 ```{r}
 tobit.out <- tobit(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,left=0,right=Inf) 
+
+library(censReg)
+censReg(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,left=0,right=Inf)
 ```
 
 估計結果
