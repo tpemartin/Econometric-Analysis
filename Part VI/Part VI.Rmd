@@ -1,8 +1,9 @@
 ---
 title: "Truncation, Censoring, Sample Selection and Treatment Effects"
-author: "Dr. Mau-Ting Lin"
-date: "May 31, 2017"
-output: html_document
+author: "林茂廷老師"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
 ---
 
 變數定義：
@@ -45,18 +46,18 @@ data.set %>% ggplot(aes(y=HOURS,x=EXPER)) +
   geom_point()
 ```
 
-使用Tobit regression
-使用套件:AER
+#使用Tobit regression
+使用套件:[censReg](https://cran.r-project.org/web/packages/censReg/vignettes/censReg.pdf) (點入連結可看到更細部的使用說明)
 ```{r}
-library(AER)
+library(censReg)
 ```
 
-使用函數tobit(迴歸模型,data=資料,left=(左尾設限值，若無則寫 -Inf), right=(右尾設限值，若無則寫Inf))
+使用函數`censReg(迴歸模型,data=資料,left=(左尾設限值，若無則寫 -Inf), right=(右尾設限值，若無則寫Inf))
 ```{r}
-tobit.out <- tobit(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,left=0,right=Inf) 
+tobit.model<-HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6
 
 library(censReg)
-censReg(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,left=0,right=Inf)
+tobit.out<-censReg(tobit.model,data=data.set,left=0,right=Inf)
 ```
 
 估計結果
@@ -64,6 +65,33 @@ censReg(HOURS~NWIFEINC+EDUC+EXPER+I(EXPER^2)+AGE+KIDSLT6+KIDSGE6,data=data.set,l
 library(stargazer)
 stargazer(tobit.out,type='text')
 ```
+
+計算「平均值代表性個人」的邊際效果
+```{r}
+tobit.out %>% margEff() %>%
+  summary() -> margEff.out; margEff.out
+# summary(margEff(tobit.out))
+```
+
+平均值代表性個人的x變數水準是多少？  
+1. 先取得模型所有變數名稱`model.variables`  
+```{r}
+model.variables<-all.vars(tobit.model); model.variables
+```
+2. 計算平均值代表性個人的y,x變數平均值`model.variable.mean`
+```{r}
+library(dplyr)
+data.set %>% dplyr::select(one_of(model.variables)) %>%
+  summarise_each(funs(mean)) -> model.variable.mean; model.variable.mean
+```
+
+EXPER對平均值代表性個人的邊際效果應該為
+```{r}
+margEff.out["EXPER","Marg. Eff."]+
+  2*model.variable.mean["EXPER"]*margEff.out["I(EXPER^2)","Marg. Eff."]
+```
+
+`margEff()`也可以使用`xValues=`來計算特定x變數值下的邊際效果（見margEff.cenReg的help說明）
 
 # 樣本選擇(Sample Selection)
 
